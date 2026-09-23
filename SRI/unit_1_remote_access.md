@@ -43,6 +43,8 @@ Añade al final del archivo los nombres de los usuarios permitidos:
 
 Plaintext
 AllowUsers tu_usuario
+
+
 4. Configurar autenticación mediante claves SSH (Sin contraseña)
 Es el método más seguro para conectarte a tu servidor.
 
@@ -61,6 +63,9 @@ Abre de nuevo /etc/ssh/sshd_config en el servidor y ajusta:
 
 Plaintext
 PasswordAuthentication no
+
+
+
 5. Reiniciar el servicio y ajustar el cortafuegos (UFW)
 Para aplicar cualquier cambio realizado en la configuración:
 
