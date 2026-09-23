@@ -4,6 +4,7 @@ Por defecto, Ubuntu suele incluir solo el cliente SSH. Para permitir conexiones 
 
 Bash
 sudo apt update
+
 sudo apt install openssh-server -y
 
 
