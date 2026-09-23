@@ -5,6 +5,8 @@ Por defecto, Ubuntu suele incluir solo el cliente SSH. Para permitir conexiones 
 Bash
 sudo apt update
 sudo apt install openssh-server -y
+
+
 2. Verificar que el servicio esté activo
 Comprueba el estado del Demonio SSH (SSHD):
 
