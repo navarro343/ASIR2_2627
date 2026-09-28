@@ -102,7 +102,19 @@ Si tienes el cortafuegos ufw activado, habilita el tráfico en el puerto corresp
 **sudo ufw reload**
 ```
 
+## 4. Prueba de Conexión y Verificación de Conectividad
 
+Para comprobar que el servidor SSH quedó correctamente configurado y escuchando peticiones entrantes, se procedió a realizar una prueba de acceso remoto desde la terminal de la máquina cliente.
+
+### Pasos ejecutados para la comprobación:
+
+1. **Obtención de la dirección IP de la máquina servidor:**
+   En el servidor Ubuntu se comprobó la interfaz de red activa para identificar la IP privada:
+   ```bash
+   ip a
+   Asi hemos puesto desde la maquina cliente(es decir en la termina)
+   ssh usuario@direccion_ip
+   y nos conectamso a la maquina externa 
 
 
 
