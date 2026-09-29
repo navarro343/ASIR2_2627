@@ -214,3 +214,144 @@ Si estás siguiendo una guía para montar un servidor SSH en tu máquina virtual
    `ssh usuario@IP_DE_TU_UBUNTU`
 2. **Si mantienes NAT:** Deberás hacer clic en el botón inferior **"Reenvío de puertos"** (Port Forwarding) y añadir una regla mapeando un puerto libre de tu PC (ej: `2222`) hacia el puerto `22` de tu máquina virtual. Te conectarías usando:  
    `ssh usuario@127.0.0.1 -p 2222`
+
+
+
+
+
+# Configuración de Red Dinámica mediante DHCP (Entorno Aislado)
+
+Este módulo explica cómo configurar un servidor DHCP propio en Ubuntu para repartir direcciones IP dinámicas a una máquina cliente de forma automática y aislada en VirtualBox.
+
+> ⚠️ **Nota de seguridad:** Para evitar convertirnos en un "Servidor DHCP intruso" (Rogue DHCP) que tumbe el internet o cause conflictos en la red física de nuestra clase, configuramos el adaptador de red en VirtualBox en modo **Red interna** (Internal Network) en ambas máquinas antes de continuar.
+
+---
+
+## 1. Configuración de IP Estática Base (En el Servidor)
+
+El servidor DHCP necesita tener una IP fija que sirva como puerta de enlace de la red. Primero, eliminamos posibles archivos de red duplicados que causen conflictos:
+
+```bash
+sudo rm /etc/netplan/01-network-manager-all.yaml /etc/netplan/90-NM-*.yaml
+```
+
+Configuramos los permisos de seguridad y editamos el archivo Netplan principal:
+
+```bash
+sudo chmod 600 /etc/netplan/00-installer-config.yaml
+sudo nano /etc/netplan/00-installer-config.yaml
+```
+
+Dejamos el archivo exactamente con esta estructura (respetando los espacios y sin usar la tecla Tabulador):
+
+```yaml
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    enp0s3:
+      dhcp4: no
+      addresses:
+        - 172.16.5.1/24
+      routes:
+        - to: default
+          via: 172.16.5.1
+```
+
+Aplicamos la configuración de red fija:
+
+```bash
+sudo netplan apply
+```
+
+---
+
+## 2. Instalación y Configuración del Servidor DHCP
+
+### Paso A: Instalar el servicio oficial
+```bash
+sudo apt update && sudo apt install isc-dhcp-server -y
+```
+
+### Paso B: Vincular la interfaz de red del servicio
+Especificamos por qué tarjeta de red (`enp0s3`) el programa va a escuchar y repartir las IPs:
+
+```bash
+sudo nano /etc/default/isc-dhcp-server
+```
+
+Buscamos la variable `INTERFACESv4` al final del archivo y añadimos nuestra tarjeta:
+
+```text
+INTERFACESv4="enp0s3"
+```
+
+### Paso C: Definir el rango de IPs a repartir (Pool)
+Abrimos el archivo maestro de configuración del DHCP:
+
+```bash
+sudo nano /etc/dhcp/dhcpd.conf
+```
+
+Nos desplazamos hasta el **final de todo el archivo** y pegamos el bloque con los parámetros de nuestro rango asignado:
+
+```text
+subnet 172.16.5.0 netmask 255.255.255.0 {
+  range 172.16.5.100 172.16.5.200;
+  option routers 172.16.5.1;
+  option domain-name-servers 8.8.8.8, 1.1.1.1;
+  default-lease-time 600;
+  max-lease-time 7200;
+}
+```
+
+### Paso D: Iniciar el servidor DHCP
+Reiniciamos y habilitamos el servicio para que arranque automáticamente con el sistema:
+
+```bash
+sudo systemctl restart isc-dhcp-server
+sudo systemctl enable isc-dhcp-server
+```
+
+Comprobamos que se encuentre en estado verde (`active/running`):
+
+```bash
+sudo systemctl status isc-dhcp-server
+```
+
+---
+
+## 3. Configuración de la Máquina Cliente DHCP
+
+Nos pasamos a la terminal de la **máquina cliente**. Configuramos su Netplan para que borre cualquier IP estática anterior y empiece a pedir direcciones de manera automática:
+
+```bash
+sudo nano /etc/netplan/00-installer-config.yaml
+```
+
+Dejamos el archivo configurado con el siguiente bloque simplificado:
+
+```yaml
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    enp0s3:
+      dhcp4: true
+```
+
+Aplicamos la configuración:
+
+```bash
+sudo netplan apply
+```
+
+### Validación Final
+
+Para comprobar que el cliente ha recibido la IP del servidor de manera correcta, ejecutamos:
+
+```bash
+ip a
+```
+
+*(En la tarjeta `enp0s3` del cliente debe reflejarse una dirección IP dinámica comprendida entre el rango asignado: `172.16.5.100` y `172.16.5.200`).*
