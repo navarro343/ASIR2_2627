@@ -114,7 +114,37 @@ Para comprobar que el servidor SSH quedó correctamente configurado y escuchando
    ip a
    Asi hemos puesto desde la maquina cliente(es decir en la termina)
    ssh usuario@direccion_ip
-   y nos conectamso a la maquina externa 
+   y nos conectamso a la maquina externa
+
+
+
+   # Configuración de Conexión SSH sin Contraseña
+
+Este módulo explica cómo configurar un intercambio de claves SSH entre dos máquinas Ubuntu (Cliente y Servidor) para conectarse de forma automática y segura sin introducir contraseñas.
+
+## 1. Generar el par de claves (En la máquina Cliente)
+
+Ejecuta el siguiente comando en la terminal de tu máquina local para crear tu llave pública y privada. **No uses `sudo`** para este comando:
+
+```bash
+ssh-keygen -t rsa -b 4096
+```
+
+* **¿Qué hacer ahora?** La terminal te hará tres preguntas (dónde guardar la clave y si quieres asignarle una frase de contraseña). **Presiona `Enter` a todo** (déjalas en blanco) para asegurar que la conexión posterior sea totalmente automática.
+
+## 2. Copiar la clave pública al servidor (Desde la máquina Cliente)
+
+Envía la parte pública de tu llave recién generada a la máquina virtual que actúa como servidor. Ejecuta este comando reemplazando los marcadores con los datos reales de tu servidor:
+
+```bash
+ssh-copy-id usuario_servidor@IP_del_servidor
+```
+
+* *Ejemplo de uso:* `ssh-copy-id navarro@172.16.5.170`
+* **Validación:** El sistema te solicitará la contraseña del servidor por última vez para autorizar el acceso. Una vez introducida, la clave quedará registrada.
+
+
+
 
 
 
