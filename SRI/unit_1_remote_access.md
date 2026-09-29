@@ -127,7 +127,7 @@ Este módulo explica cómo configurar un intercambio de claves SSH entre dos má
 Ejecuta el siguiente comando en la terminal de tu máquina local para crear tu llave pública y privada. **No uses `sudo`** para este comando:
 
 ```bash
-ssh-keygen -t rsa -b 4096
+ssh-keygen -t ed25519
 ```
 
 * **¿Qué hacer ahora?** La terminal te hará tres preguntas (dónde guardar la clave y si quieres asignarle una frase de contraseña). **Presiona `Enter` a todo** (déjalas en blanco) para asegurar que la conexión posterior sea totalmente automática.
