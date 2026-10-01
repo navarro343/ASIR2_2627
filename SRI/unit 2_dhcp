@@ -1,1 +1,43 @@
- 
+ # Configuración y Verificación de Servicio DHCP (Windows Server - Ubuntu)
+
+Este documento detalla los pasos para configurar un servidor **Windows Server** como servidor DHCP y verificar la correcta asignación de direcciones IP desde un cliente **Ubuntu**.
+
+---
+
+## 1. Configuración de Windows Server (Servidor DHCP)
+
+### Paso 1: Instalación del Rol DHCP
+1. Abre el **Administrador del Servidor** (*Server Manager*).
+2. Haz clic en **Administrar** > **Agregar roles y características**.
+3. Selecciona **Instalación basada en características o en roles** y haz clic en **Siguiente**.
+4. En la sección **Roles del servidor**, marca la casilla **Servidor DHCP**.
+5. Acepta las características requeridas y completa el asistente haciendo clic en **Instalar**.
+
+### Paso 2: Post-configuración
+1. En el Administrador del Servidor, haz clic en el icono de notificación (bandera) y selecciona **Completar configuración de DHCP**.
+2. Confirma las credenciales de administrador para autorizar el servicio.
+
+### Paso 3: Crear un Ámbito (Scope)
+1. Ve a **Herramientas** > **DHCP**.
+2. Despliega el nombre del servidor, haz clic derecho sobre **IPv4** y selecciona **Ámbito nuevo...**.
+3. Asigna un nombre al ámbito (ej. `Red_DHCP_Local`).
+4. Define el rango de direcciones IP (ej. de `192.168.1.100` a `192.168.1.200`) y la máscara de subred correspondiente.
+5. *(Opcional)* Configura la puerta de enlace predeterminada y los servidores DNS.
+6. Selecciona la opción para **Activar el ámbito ahora** y finaliza el asistente.
+
+---
+
+## 2. Configuración y Verificación en Ubuntu (Cliente DHCP)
+
+### Paso 1: Conexión de Red
+Asegúrate de que ambas máquinas estén conectadas a la misma red física o adaptador de red en el hipervisor (ej. *Red Interna* o *Adaptador Solo-Anfitrión* en VirtualBox/VMware).
+
+### Paso 2: Configurar la Interfaz para DHCP
+Si utilizas **Netplan** (línea de comandos), edita el archivo de configuración ubicado en `/etc/netplan/`:
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    enp0s3: # Reemplaza por el nombre de tu interfaz de red
+      dhcp4: true
