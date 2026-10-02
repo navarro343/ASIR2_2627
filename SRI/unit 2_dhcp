@@ -41,3 +41,11 @@ network:
   ethernets:
     enp0s3: # Reemplaza por el nombre de tu interfaz de red
       dhcp4: true
+
+
+
+
+puede haber en la misma red dos servidores de dhcp
+
+Sí, rotundamente sí, pueden existir dos o más servidores DHCP en la misma red. No hay ninguna limitación técnica que impida que coexistan físicamente en el mismo segmento.
+Sin embargo, para que funcionen correctamente y no generen un caos en las conexiones, debes cumplir una regla de oro obligatoria: sus rangos de direcciones IP no se deben superponer (solapar).
