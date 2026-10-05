@@ -49,3 +49,117 @@ puede haber en la misma red dos servidores de dhcp
 
 Sí, rotundamente sí, pueden existir dos o más servidores DHCP en la misma red. No hay ninguna limitación técnica que impida que coexistan físicamente en el mismo segmento.
 Sin embargo, para que funcionen correctamente y no generen un caos en las conexiones, debes cumplir una regla de oro obligatoria: sus rangos de direcciones IP no se deben superponer (solapar).
+
+
+
+# Documentación del Archivo de Configuración DHCP (`dhcpd.conf`)
+
+A continuación se presenta el desglose completo y la explicación línea por línea del archivo de configuración `/etc/dhcp/dhcpd.conf`.
+
+---
+
+## 1. Ejemplo de Reserva de IP Estática por Dirección MAC (Comentado)
+
+```dhcp
+# Hosts for which fixed IP addresses have been specified can boot using
+# BOOTP or DHCP.   Hosts for which no fixed address is specified can only
+# be booted with DHCP, unless there is an address range on the subnet
+# to which a BOOTP client is connected which has the dynamic-bootp flag
+# set.
+#host fantasia {
+#  hardware ethernet 08:00:07:26:c0:a5;
+#  fixed-address fantasia.example.com;
+#}
+```
+
+### Explicación línea por línea:
+* **`# Hosts for which fixed IP addresses...`**: Comentario informativo que indica que los equipos con IP fijas especificadas pueden arrancar por BOOTP o DHCP. Aquellos sin IP fija solo pueden usar DHCP.
+* **`#host fantasia {`**: Inicio de la declaración de reserva estática para el host `fantasia` *(línea comentada)*.
+* **`#  hardware ethernet 08:00:07:26:c0:a5;`**: Especifica la dirección MAC física de la tarjeta de red del equipo para identificarlo unívocamente *(línea comentada)*.
+* **`#  fixed-address fantasia.example.com;`**: Asigna de forma permanente la IP o nombre de host resolbible a esa MAC específica *(línea comentada)*.
+* **`#}`**: Cierre del bloque de reserva del host `fantasia` *(línea comentada)*.
+
+---
+
+## 2. Ejemplo de Clasificación de Clientes por Clases (Comentado)
+
+```dhcp
+# You can declare a class of clients and then do address allocation
+# based on that.   The example below shows a case where all clients
+# in a certain class get addresses on the 10.17.224/24 subnet, and all
+# other clients get addresses on the 10.0.29/24 subnet.
+
+#class "foo" {
+#  match if substring (option vendor-class-identifier, 0, 4) = "SUNW";
+#}
+```
+
+### Explicación línea por línea:
+* **`# You can declare a class...`**: Comentario explicativo sobre cómo agrupar clientes por clases (ej. por fabricante) para asignarles subredes distintas.
+* **`#class "foo" {`**: Definición de la clase personalizada llamada `"foo"` *(línea comentada)*.
+* **`#  match if substring (option vendor-class-identifier, 0, 4) = "SUNW";`**: Condición para identificar si el identificador del fabricante del equipo empieza por `"SUNW"` (Sun Microsystems) *(línea comentada)*.
+* **`#}`**: Cierre del bloque de la clase `"foo"` *(línea comentada)*.
+
+---
+
+## 3. Ejemplo de Red Compartida (*Shared Network*) y Rangos (*Pools*) (Comentado)
+
+```dhcp
+#shared-network 224-29 {
+#  subnet 10.17.224.0 netmask 255.255.255.0 {
+#    option routers rtr-224.example.org;
+#  }
+#  subnet 10.0.29.0 netmask 255.255.255.0 {
+#    option routers rtr-29.example.org;
+#  }
+#  pool {
+#    allow members of "foo";
+#    range 10.17.224.10 10.17.224.250;
+#  }
+#  pool {
+#    deny members of "foo";
+#    range 10.0.29.10 10.0.29.230;
+#  }
+#}
+```
+
+### Explicación línea por línea:
+* **`#shared-network 224-29 {`**: Declaración de una red compartida llamada `224-29` cuando coexisten múltiples subredes físicas/lógicas en la misma interfaz *(línea comentada)*.
+* **`#  subnet 10.17.224.0 netmask 255.255.255.0 {`**: Declaración de la primera subred `10.17.224.0/24` *(línea comentada)*.
+* **`#    option routers rtr-224.example.org;`**: Puerta de enlace predeterminada para la primera subred *(línea comentada)*.
+* **`#  }`**: Cierre de la primera subred *(línea comentada)*.
+* **`#  subnet 10.0.29.0 netmask 255.255.255.0 {`**: Declaración de la segunda subred `10.0.29.0/24` *(línea comentada)*.
+* **`#    option routers rtr-29.example.org;`**: Puerta de enlace predeterminada para la segunda subred *(línea comentada)*.
+* **`#  }`**: Cierre de la segunda subred *(línea comentada)*.
+* **`#  pool {`**: Inicio del primer grupo (*pool*) de asignación de IP *(línea comentada)*.
+* **`#    allow members of "foo";`**: Permite la asignación de este pool exclusivamente a clientes pertenecientes a la clase `"foo"` *(línea comentada)*.
+* **`#    range 10.17.224.10 10.17.224.250;`**: Rango de direcciones IP asignables a los miembros de la clase `"foo"` *(línea comentada)*.
+* **`#  }`**: Cierre del primer pool *(línea comentada)*.
+* **`#  pool {`**: Inicio del segundo grupo (*pool*) de asignación de IP *(línea comentada)*.
+* **`#    deny members of "foo";`**: Excluye a los miembros de la clase `"foo"` de este pool *(línea comentada)*.
+* **`#    range 10.0.29.10 10.0.29.230;`**: Rango de direcciones IP asignables al resto de clientes *(línea comentada)*.
+* **`#  }`**: Cierre del segundo pool *(línea comentada)*.
+* **`#}`**: Cierre del bloque de la red compartida *(línea comentada)*.
+
+---
+
+## 4. Configuración Activa del Servidor DHCP (Subred en Uso)
+
+```dhcp
+subnet 172.16.0.0 netmask 255.255.0.0 {
+  range 172.16.5.171 172.16.5.178;
+  option routers 172.16.0.1;
+  option domain-name-servers 8.8.8.8, 8.8.4.4;
+  default-lease-time 600;
+  max-lease-time 7200;
+}
+```
+
+### Explicación línea por línea:
+* **`subnet 172.16.0.0 netmask 255.255.0.0 {`**: Define la subred activa `172.16.0.0` con máscara `255.255.0.0` (`/16`) que gestionará el servidor DHCP.
+* **`range 172.16.5.171 172.16.5.178;`**: Establece el rango (*pool*) de IP dinámicas que se entregarán a los clientes (de la `172.16.5.171` a la `172.16.5.178`, un total de 8 direcciones IP).
+* **`option routers 172.16.0.1;`**: Asigna a los clientes la IP de la puerta de enlace predeterminada (*default gateway*), en este caso `172.16.0.1`.
+* **`option domain-name-servers 8.8.8.8, 8.8.4.4;`**: Asigna los servidores DNS primario (`8.8.8.8`) y secundario (`8.8.4.4`) de Google a los clientes.
+* **`default-lease-time 600;`**: Define el tiempo de concesión (*lease time*) por defecto en **600 segundos (10 minutos)**.
+* **`max-lease-time 7200;`**: Establece el tiempo máximo permitido de concesión en **7200 segundos (2 horas)**.
+* **`}`**: Cierre del bloque de configuración de la subred activa.
