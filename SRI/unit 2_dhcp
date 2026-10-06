@@ -163,3 +163,61 @@ subnet 172.16.0.0 netmask 255.255.0.0 {
 * **`default-lease-time 600;`**: Define el tiempo de concesión (*lease time*) por defecto en **600 segundos (10 minutos)**.
 * **`max-lease-time 7200;`**: Establece el tiempo máximo permitido de concesión en **7200 segundos (2 horas)**.
 * **`}`**: Cierre del bloque de configuración de la subred activa.
+
+
+
+
+
+
+
+# Explicación Sencilla de la Cabecera de `dhcpd.conf`
+
+```dhcp
+# dhcpd.conf
+#
+# Sample configuration file for ISC dhcpd
+#
+# Attention: If /etc/ltsp/dhcpd.conf exists, that will be used as
+# configuration file instead of this file.
+#
+
+# option definitions common to all supported networks...
+# option domain-name "example.org";
+# option domain-name-servers ns1.example.org, ns2.example.org;
+
+# default-lease-time 600;
+# max-lease-time 7200;
+```
+
+---
+
+### Explicación línea por línea:
+
+* **`# dhcpd.conf`**
+  * **Explicación:** Simplemente indica el nombre del archivo en el que estás trabajando.
+
+* **`#`**
+  * **Explicación:** Línea vacía usada solo para separar bloques y que el archivo sea más fácil de leer.
+
+* **`# Sample configuration file for ISC dhcpd`**
+  * **Explicación:** Aclaración que indica que este archivo es una **plantilla de ejemplo** para configurar el servidor DHCP.
+
+* **`# Attention: If /etc/ltsp/dhcpd.conf exists, that will be used as configuration file instead of this file.`**
+  * **Explicación:** Un aviso importante: si existe ese otro archivo especial (`/etc/ltsp/dhcpd.conf` para terminales ligeros LTSP), el sistema usará ese y se saltará este archivo.
+
+* **`# option definitions common to all supported networks...`**
+  * **Explicación:** Comentario que avisa que las siguientes opciones son globales (afectarán a todas las redes que configures más abajo).
+
+* **`# option domain-name "example.org";`**
+  * **Explicación:** Ejemplo para asignarle un nombre de dominio (por ejemplo `example.org`) a todos los ordenadores que se conecten a la red. *(Está comentado para que tú pones el tuyo si quieres)*.
+
+* **`# option domain-name-servers ns1.example.org, ns2.example.org;`**
+  * **Explicación:** Ejemplo para decirle a los equipos qué servidores de nombres (DNS) deben usar para buscar páginas web. *(Está comentado)*.
+
+* **`# default-lease-time 600;`**
+  * **Explicación:** Ejemplo de tiempo normal que el servidor le "presta" una dirección IP a un equipo (**600 segundos = 10 minutos**). Si el equipo no pide renovarla, la IP queda libre. *(Está comentado)*.
+
+* **`# max-lease-time 7200;`**
+  * **Explicación:** Ejemplo del tiempo máximo total que un equipo puede quedarse con la misma dirección IP (**7200 segundos = 2 horas**). *(Está comentado)*.
+
+
