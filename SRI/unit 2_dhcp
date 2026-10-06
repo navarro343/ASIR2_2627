@@ -583,3 +583,54 @@ authoritative;
   * **Explicación:** Cierre del segundo pool *(línea comentada)*.
 * **`#}`**
   * **Explicación:** Cierre del bloque principal de la red compartida (`shared-network`) *(línea comentada)*.
+
+
+
+
+# Archivo de log dedicado para el servicio DHCP (`isc-dhcp-server`)
+
+Guía para que el servicio DHCP de Ubuntu guarde sus mensajes en un archivo de log propio mediante `rsyslog`: `/var/log/dhcpd.log`.
+
+## Paso 1: Indicar a `dhcpd` que use una facilidad de log propia
+
+Añade esta línea al principio de `/etc/dhcp/dhcpd.conf`:
+
+```dhcp
+log-facility local7; esta opcion tiene uqe estar descomentada cuando entremos en la configuracion del archivo mencionado.
+```
+
+## Paso 2: Crear la regla de `rsyslog`
+
+```bash
+sudo nano /etc/rsyslog.d/dhcpd.conf
+```
+
+Con este contenido:
+
+```
+local7.*    /var/log/dhcpd.log
+```
+
+## Paso 3: Crear el archivo y reiniciar los servicios
+
+```bash
+sudo touch /var/log/dhcpd.log
+sudo chown syslog:adm /var/log/dhcpd.log
+sudo systemctl restart rsyslog
+sudo systemctl restart isc-dhcp-server
+```
+
+## Paso 4: Comprobar que se escribe
+
+```bash
+sudo tail -f /var/log/dhcpd.log
+```
+
+Al conectar un cliente deberías ver el intercambio DHCP completo:
+
+| Mensaje | Significado |
+|---|---|
+| `DHCPDISCOVER` | El cliente busca un servidor DHCP. |
+| `DHCPOFFER` | El servidor ofrece una IP al cliente. |
+| `DHCPREQUEST` | El cliente solicita la IP ofrecida. |
+| `DHCPACK` | El servidor confirma la asignación. |
