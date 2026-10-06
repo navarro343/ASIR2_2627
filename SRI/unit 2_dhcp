@@ -221,3 +221,365 @@ subnet 172.16.0.0 netmask 255.255.0.0 {
   * **Explicación:** Ejemplo del tiempo máximo total que un equipo puede quedarse con la misma dirección IP (**7200 segundos = 2 horas**). *(Está comentado)*.
 
 
+
+
+# Explicación de Parámetros de Configuración (`dhcpd.conf`)
+
+```dhcp
+# The ddns-updates-style parameter controls whether or not the server will
+# attempt to do a DNS update when a lease is confirmed. We default to the
+# behavior of the version 2 packages ('none', since DHCP v2 didn't
+# have support for DDNS.)
+#ddns-update-style none;
+
+# If this DHCP server is the official DHCP server for the local
+# network, the authoritative directive should be uncommented.
+authoritative;
+
+# Use this to send dhcp log messages to a different log file (you also
+# have to hack syslog.conf to complete the redirection).
+#log-facility local7;
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 2.1. Actualización Dinámica de DNS (`ddns-update-style`)
+
+* **`# The ddns-updates-style parameter controls whether or not...`**
+  * **Explicación:** Comentario que explica si el servidor DHCP debe avisar al servidor DNS para actualizar los nombres cuando entrega una IP.
+* **`#ddns-update-style none;`**
+  * **Explicación:** Desactiva el envío de actualizaciones automáticas al DNS *(línea comentada)*.
+
+---
+
+#### 2.2. Autoridad del Servidor (`authoritative`)
+
+* **`# If this DHCP server is the official DHCP server for the local network...`**
+  * **Explicación:** Comentario que avisa que debes activar la siguiente opción si este es el servidor DHCP oficial de la red.
+* **`authoritative;`** *(Línea activa)*
+  * **Explicación:** Declara este servidor como la **autoridad principal** de la red. Si un cliente pide una IP incorrecta o antigua, el servidor le obliga a rechazarla y solicitar una válida.
+
+---
+
+#### 2.3. Registros de Sistema / Logs (`log-facility`)
+
+* **`# Use this to send dhcp log messages to a different log file...`**
+  * **Explicación:** Comentario que explica cómo enviar la actividad y errores del DHCP a un archivo de registro (*log*) independiente.
+* **`#log-facility local7;`**
+  * **Explicación:** Define el canal de registros `local7` para guardar la actividad del servicio DHCP *(línea comentada)*.
+
+
+
+
+
+# Explicación de Declaraciones de Subredes de Ejemplo (`dhcpd.conf`)
+
+```dhcp
+# No service will be given on this subnet, but declaring it helps the 
+# DHCP server to understand the network topology.
+
+#subnet 10.152.187.0 netmask 255.255.255.0 {
+#}
+
+# This is a very basic subnet declaration.
+
+#subnet 10.254.239.0 netmask 255.255.255.224 {
+#  range 10.254.239.10 10.254.239.20;
+#  option routers rtr-239-0-1.example.org, rtr-239-0-2.example.org;
+#}
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 1. Ejemplo de subred vacía (topología)
+
+* **`# No service will be given on this subnet, but declaring it helps the DHCP server to understand the network topology.`**
+  * **Explicación:** Comentario que explica que en esta subred no se repartirán direcciones IP, pero declararla sirve para que el servidor entienda cómo está estructurada la red físicamente.
+* **`#subnet 10.152.187.0 netmask 255.255.255.0 {`**
+  * **Explicación:** Declaración vacía de la subred `10.152.187.0` con máscara `/24` *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre del bloque de la subred vacía *(línea comentada)*.
+
+---
+
+#### 2. Ejemplo básico de declaración de subred
+
+* **`# This is a very basic subnet declaration.`**
+  * **Explicación:** Comentario indicando que a continuación se muestra un ejemplo básico de cómo configurar una subred.
+* **`#subnet 10.254.239.0 netmask 255.255.255.224 {`**
+  * **Explicación:** Declaración de la subred `10.254.239.0` con máscara `255.255.255.224` (`/27`) *(línea comentada)*.
+* **`#  range 10.254.239.10 10.254.239.20;`**
+  * **Explicación:** Define el rango de direcciones IP dinámicas que se entregarían (de la `.10` a la `.20`) *(línea comentada)*.
+* **`#  option routers rtr-239-0-1.example.org, rtr-239-0-2.example.org;`**
+  * **Explicación:** Asigna dos puertas de enlace (*routers*) para redundancia en esta subred *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre del bloque de la subred de ejemplo *(línea comentada)*.
+
+
+
+# Explicación de Subredes con BOOTP e Interna (`dhcpd.conf`)
+
+```dhcp
+# This declaration allows BOOTP clients to get dynamic addresses,
+# which we don't really recommend.
+
+#subnet 10.254.239.32 netmask 255.255.255.224 {
+#  range dynamic-bootp 10.254.239.40 10.254.239.60;
+#  option broadcast-address 10.254.239.31;
+#  option routers rtr-239-32-1.example.org;
+#}
+
+# A slightly different configuration for an internal subnet.
+#subnet 10.5.5.0 netmask 255.255.255.224 {
+#  range 10.5.5.26 10.5.5.30;
+#  option domain-name-servers ns1.internal.example.org;
+#  option domain-name "internal.example.org";
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 1. Ejemplo de subred con asignación dinámica para BOOTP
+
+* **`# This declaration allows BOOTP clients to get dynamic addresses, which we don't really recommend.`**
+  * **Explicación:** Comentario que avisa que esta configuración permite asignar IP dinámicas a equipos con el protocolo antiguo BOOTP (algo no recomendado actualmente).
+* **`#subnet 10.254.239.32 netmask 255.255.255.224 {`**
+  * **Explicación:** Declaración de la subred `10.254.239.32` con máscara `/27` *(línea comentada)*.
+* **`#  range dynamic-bootp 10.254.239.40 10.254.239.60;`**
+  * **Explicación:** Rango de direcciones IP asignables tanto a clientes DHCP como a clientes BOOTP (de la `.40` a la `.60`) *(línea comentada)*.
+* **`#  option broadcast-address 10.254.239.31;`**
+  * **Explicación:** Asigna la dirección de difusión (*broadcast*) de la red *(línea comentada)*.
+* **`#  option routers rtr-239-32-1.example.org;`**
+  * **Explicación:** Asigna la puerta de enlace (*router*) predeterminada *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre del bloque de la subred BOOTP *(línea comentada)*.
+
+---
+
+#### 2. Ejemplo de subred para una red interna con DNS local
+
+* **`# A slightly different configuration for an internal subnet.`**
+  * **Explicación:** Comentario que indica que es una configuración ligeramente distinta orientada a una red interna.
+* **`#subnet 10.5.5.0 netmask 255.255.255.224 {`**
+  * **Explicación:** Declaración de la subred interna `10.5.5.0` con máscara `/27` *(línea comentada)*.
+* **`#  range 10.5.5.26 10.5.5.30;`**
+  * **Explicación:** Rango de IP dinámicas asignables a los equipos internos (de la `.26` a la `.30`) *(línea comentada)*.
+* **`#  option domain-name-servers ns1.internal.example.org;`**
+  * **Explicación:** Asigna el servidor DNS específico para la red interna (`ns1.internal.example.org`) *(línea comentada)*.
+* **`#  option domain-name "internal.example.org";`**
+  * **Explicación:** Define el nombre de dominio local (`internal.example.org`) para la búsqueda de nombres en esa red *(línea comentada)*.
+
+
+
+
+# Explicación de Opciones de Subred y Declaración de Hosts (`dhcpd.conf`)
+
+```dhcp
+#  option subnet-mask 255.255.255.224;
+#  option routers 10.5.5.1;
+#  option broadcast-address 10.5.5.31;
+#  default-lease-time 600;
+#  max-lease-time 7200;
+#}
+
+# Hosts which require special configuration options can be listed in
+# host statements.   If no address is specified, the address will be
+# allocated dynamically (if possible), but the host-specific information
+# will still come from the host declaration.
+
+#host passacaglia {
+#  hardware ethernet 0:0:c0:5d:bd:95;
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 1. Continuación y cierre de la subred interna (`10.5.5.0`)
+
+* **`#  option subnet-mask 255.255.255.224;`**
+  * **Explicación:** Asigna de forma explícita la máscara de subred `255.255.255.224` (`/27`) a los clientes de esta subred *(línea comentada)*.
+* **`#  option routers 10.5.5.1;`**
+  * **Explicación:** Asigna la puerta de enlace predeterminada (*router/gateway*) `10.5.5.1` *(línea comentada)*.
+* **`#  option broadcast-address 10.5.5.31;`**
+  * **Explicación:** Especifica la dirección de difusión (*broadcast*) de la red, en este caso `10.5.5.31` *(línea comentada)*.
+* **`#  default-lease-time 600;`**
+  * **Explicación:** Tiempo de concesión por defecto para esta subred (**600 segundos = 10 minutos**) *(línea comentada)*.
+* **`#  max-lease-time 7200;`**
+  * **Explicación:** Tiempo máximo de concesión permitido (**7200 segundos = 2 horas**) *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre del bloque de la subred interna `10.5.5.0` *(línea comentada)*.
+
+---
+
+#### 2. Declaración de equipos específicos (`host`)
+
+* **`# Hosts which require special configuration options can be listed in...`**
+  * **Explicación:** Comentario que explica que los equipos que requieran parámetros especiales se pueden listar mediante bloques `host`. Si no se especifica una IP fija, obtendrán una IP dinámica pero recibirán las configuraciones personalizadas del bloque.
+* **`#host passacaglia {`**
+  * **Explicación:** Inicio de la declaración de configuración especial para un equipo específico llamado `passacaglia` *(línea comentada)*.
+* **`#  hardware ethernet 0:0:c0:5d:bd:95;`**
+  * **Explicación:** Define la dirección MAC física de la tarjeta de red del equipo (`0:0:c0:5d:bd:95`) para identificarlo de forma única en la red *(línea comentada)*.
+
+
+
+# Explicación de Arranque por Red y Reserva de IP Fija (`dhcpd.conf`)
+
+```dhcp
+#  filename "vmunix.passacaglia";
+#  server-name "toccata.example.com";
+#}
+
+# Fixed IP addresses can also be specified for hosts.   These addresses
+# should not also be listed as being available for dynamic assignment.
+# Hosts for which fixed IP addresses have been specified can boot using
+# BOOTP or DHCP.   Hosts for which no fixed address is specified can only
+# be booted with DHCP, unless there is an address range on the subnet
+# to which a BOOTP client is connected which has the dynamic-bootp flag
+# set.
+#host fantasia {
+#  hardware ethernet 08:00:07:26:c0:a5;
+#  fixed-address fantasia.example.com;
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 1. Continuación y cierre del host `passacaglia` (Arranque por red)
+
+* **`#  filename "vmunix.passacaglia";`**
+  * **Explicación:** Especifica el nombre del archivo de imagen/sistema operativo que el cliente descargará al arrancar por red (mediante TFTP/PXE) *(línea comentada)*.
+* **`#  server-name "toccata.example.com";`**
+  * **Explicación:** Nombre del servidor desde el cual el cliente debe descargar ese archivo de arranque *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre del bloque de configuración del host `passacaglia` *(línea comentada)*.
+
+---
+
+#### 2. Ejemplo de reserva de IP fija por dirección MAC (`host fantasia`)
+
+* **`# Fixed IP addresses can also be specified for hosts...`**
+  * **Explicación:** Comentario que aclara que se pueden reservar IP fijas a equipos específicos. Estas direcciones no deben estar incluidas dentro del rango de asignación dinámica para evitar duplicados.
+* **`#host fantasia {`**
+  * **Explicación:** Inicio de la declaración de reserva para el equipo llamado `fantasia` *(línea comentada)*.
+* **`#  hardware ethernet 08:00:07:26:c0:a5;`**
+  * **Explicación:** Especifica la dirección MAC física de la tarjeta de red del equipo para identificarlo de forma única *(línea comentada)*.
+* **`#  fixed-address fantasia.example.com;`**
+  * **Explicación:** Asigna de forma fija y permanente la IP (o nombre resolbible) a la tarjeta de red con esa MAC *(línea comentada)*.
+
+
+
+# Explicación de Clases de Clientes y Red Compartida (`dhcpd.conf`)
+
+```dhcp
+# You can declare a class of clients and then do address allocation
+# based on that.   The example below shows a case where all clients
+# in a certain class get addresses on the 10.17.224/24 subnet, and all
+# other clients get addresses on the 10.0.29/24 subnet.
+
+#class "foo" {
+#  match if substring (option vendor-class-identifier, 0, 4) = "SUNW";
+#}
+
+#shared-network 224-29 {
+#  subnet 10.17.224.0 netmask 255.255.255.0 {
+#    option routers rtr-224.example.org;
+#  }
+#  subnet 10.0.29.0 netmask 255.255.255.0 {
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 1. Ejemplo de clasificación de clientes por grupo (`class`)
+
+* **`# You can declare a class of clients...`**
+  * **Explicación:** Comentario que explica cómo agrupar equipos por clases (por ejemplo, por fabricante) para asignarles direcciones IP de subredes distintas según su categoría.
+* **`#class "foo" {`**
+  * **Explicación:** Inicio de la definición de una clase o categoría personalizada llamada `"foo"` *(línea comentada)*.
+* **`#  match if substring (option vendor-class-identifier, 0, 4) = "SUNW";`**
+  * **Explicación:** Regla de identificación: comprueba si los primeros 4 caracteres de la marca/fabricante del cliente son `"SUNW"` (equipos Sun Microsystems) *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre de la definición de la clase `"foo"` *(línea comentada)*.
+
+---
+
+#### 2. Ejemplo de Red Compartida (`shared-network`)
+
+* **`#shared-network 224-29 {`**
+  * **Explicación:** Agrupa varias subredes (`10.17.224.0` y `10.0.29.0`) para que convivan en la misma tarjeta o interfaz física de red *(línea comentada)*.
+* **`#  subnet 10.17.224.0 netmask 255.255.255.0 {`**
+  * **Explicación:** Declaración de la primera subred dentro de la red compartida (`10.17.224.0/24`) *(línea comentada)*.
+* **`#    option routers rtr-224.example.org;`**
+  * **Explicación:** Asigna la puerta de enlace predeterminada (*router*) para los clientes de esta primera subred *(línea comentada)*.
+* **`#  }`**
+  * **Explicación:** Cierre del bloque de la primera subred *(línea comentada)*.
+* **`#  subnet 10.0.29.0 netmask 255.255.255.0 {`**
+  * **Explicación:** Declaración de la segunda subred dentro de la red compartida (`10.0.29.0/24`) *(línea comentada)*.
+
+
+
+# Explicación de Subredes y Grupos (`Pools`) Condicionales (`dhcpd.conf`)
+
+```dhcp
+#  subnet 10.0.29.0 netmask 255.255.255.0 {
+#    option routers rtr-29.example.org;
+#  }
+#  pool {
+#    allow members of "foo";
+#    range 10.17.224.10 10.17.224.250;
+#  }
+#  pool {
+#    deny members of "foo";
+#    range 10.0.29.10 10.0.29.230;
+#  }
+#}
+```
+
+---
+
+### Explicación línea por línea:
+
+#### 1. Segunda Subred de la Red Compartida
+
+* **`#  subnet 10.0.29.0 netmask 255.255.255.0 {`**
+  * **Explicación:** Declaración de la segunda subred (`10.0.29.0/24`) dentro de la red compartida *(línea comentada)*.
+* **`#    option routers rtr-29.example.org;`**
+  * **Explicación:** Asigna la puerta de enlace predeterminada (*router*) para los clientes de esta segunda subred *(línea comentada)*.
+* **`#  }`**
+  * **Explicación:** Cierre del bloque de la segunda subred *(línea comentada)*.
+
+---
+
+#### 2. Primer Grupo de Direcciones (`Pool` exclusivo para la Clase "foo")
+
+* **`#  pool {`**
+  * **Explicación:** Inicio de la definición del primer grupo (*pool*) de direcciones IP dinámicas *(línea comentada)*.
+* **`#    allow members of "foo";`**
+  * **Explicación:** Regla de acceso: permite asignar este grupo de IP **únicamente** a los equipos que pertenezcan a la clase `"foo"` *(línea comentada)*.
+* **`#    range 10.17.224.10 10.17.224.250;`**
+  * **Explicación:** Rango de IP disponibles (`10.17.224.10` a `10.17.224.250`) para los clientes autorizados de la clase `"foo"` *(línea comentada)*.
+* **`#  }`**
+  * **Explicación:** Cierre del primer pool *(línea comentada)*.
+
+---
+
+#### 3. Segundo Grupo de Direcciones (`Pool` para el resto de clientes)
+
+* **`#  pool {`**
+  * **Explicación:** Inicio de la definición del segundo grupo (*pool*) de direcciones IP dinámicas *(línea comentada)*.
+* **`#    deny members of "foo";`**
+  * **Explicación:** Regla de exclusión: prohíbe el uso de este grupo a los miembros de la clase `"foo"`, reservándolo para los demás clientes *(línea comentada)*.
+* **`#    range 10.0.29.10 10.0.29.230;`**
+  * **Explicación:** Rango de IP disponibles (`10.0.29.10` a `10.0.29.230`) para el resto de equipos generales *(línea comentada)*.
+* **`#  }`**
+  * **Explicación:** Cierre del segundo pool *(línea comentada)*.
+* **`#}`**
+  * **Explicación:** Cierre del bloque principal de la red compartida (`shared-network`) *(línea comentada)*.
