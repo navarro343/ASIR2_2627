@@ -1,1 +1,754 @@
+## 1. Objetivo de la práctica
 
+El objetivo de esta práctica es configurar un servidor DNS en Ubuntu para que los equipos de nuestra red puedan comunicarse utilizando nombres de dominio en lugar de tener que recordar sus direcciones IP.
+
+Vamos a trabajar con tres servicios:
+
+- **Bind9:** servidor DNS completo que permite configurar zonas directas e inversas.
+- **Dnsmasq:** servidor DNS más ligero y sencillo.
+- **DDNS:** permite actualizar automáticamente los registros DNS cuando cambian las direcciones IP de los clientes.
+
+### Datos de nuestras máquinas
+
+| Equipo | Dirección IP |
+|---|---|
+| Servidor Ubuntu | 172.16.5.150 |
+| Cliente Ubuntu | 172.16.5.151 |
+| Red | 172.16.5.0/24 |
+| Máscara | 255.255.255.0 |
+| Dominio de la práctica | midominio.local |
+
+Las dos máquinas deben estar conectadas a la misma red de VirtualBox y poder comunicarse entre ellas.
+
+## 2. ¿Qué es DNS?
+
+DNS significa **Domain Name System** o Sistema de Nombres de Dominio.
+
+Es un servicio que permite relacionar nombres de dominio con direcciones IP.
+
+Por ejemplo:
+
+```text
+servidor.midominio.local → 172.16.5.150
+cliente.midominio.local → 172.16.5.151
+```
+
+De esta manera no necesitamos recordar las direcciones IP para localizar los equipos.
+
+### Diferencia entre DNS, DHCP y DDNS
+
+**DNS:** relaciona nombres de dominio con direcciones IP.
+
+**DHCP:** asigna automáticamente direcciones IP y otros parámetros de red a los clientes.
+
+**DDNS:** permite actualizar automáticamente los registros DNS cuando cambia la dirección IP de un equipo.
+
+---
+
+# PARTE A - CONFIGURACIÓN DEL SERVIDOR DNS CON BIND9
+
+## 3. Instalación de Bind9
+
+Bind9 es un programa que permite convertir nuestra máquina Ubuntu en un servidor DNS.
+
+Primero actualizamos la lista de paquetes:
+
+```bash
+sudo apt update
+```
+
+Instalamos Bind9 y las herramientas necesarias:
+
+```bash
+sudo apt install bind9 bind9-utils dnsutils -y
+```
+
+**Explicación:**
+
+- `sudo`: ejecuta el comando con permisos de administrador.
+- `apt install`: instala los paquetes.
+- `bind9`: instala el servidor DNS.
+- `bind9-utils`: proporciona herramientas para comprobar su configuración.
+- `dnsutils`: permite realizar consultas DNS con herramientas como `dig`.
+- `-y`: acepta automáticamente la instalación.
+
+Activamos el servicio:
+
+```bash
+sudo systemctl enable --now named
+```
+
+**Explicación:**
+
+- `systemctl`: permite gestionar los servicios del sistema.
+- `enable`: hace que el servicio se inicie automáticamente al arrancar Ubuntu.
+- `--now`: inicia el servicio inmediatamente.
+- `named`: es el nombre del servicio de Bind9.
+
+Comprobamos que funciona:
+
+```bash
+sudo systemctl status named
+```
+
+Si aparece:
+
+```text
+Active: active (running)
+```
+
+significa que el servicio está funcionando.
+
+También podemos comprobar si escucha en el puerto DNS:
+
+```bash
+sudo ss -tulnp | grep :53
+```
+
+DNS utiliza el puerto **53**, tanto UDP como TCP.
+
+---
+
+## 4. Configuración general de Bind9
+
+Abrimos el archivo:
+
+```bash
+sudo nano /etc/bind/named.conf.options
+```
+
+Este archivo contiene las opciones generales del servidor DNS.
+
+Configuración:
+
+```text
+options {
+    directory "/var/cache/bind";
+
+    recursion yes;
+
+    allow-query { 127.0.0.1; 172.16.5.0/24; };
+
+    forwarders {
+        8.8.8.8;
+        1.1.1.1;
+    };
+
+    dnssec-validation auto;
+
+    listen-on { 127.0.0.1; 172.16.5.150; };
+};
+```
+
+### Explicación de cada opción
+
+**`directory "/var/cache/bind";`**
+
+Indica el directorio que utiliza Bind9 para guardar archivos de trabajo.
+
+**`recursion yes;`**
+
+Permite que el servidor realice consultas recursivas.
+
+Esto significa que si el DNS no conoce una respuesta puede buscarla utilizando otros servidores DNS.
+
+**`allow-query`**
+
+Indica qué equipos pueden realizar consultas al servidor.
+
+En nuestro caso permitimos las consultas desde el propio servidor y desde nuestra red `172.16.5.0/24`.
+
+**`forwarders`**
+
+Indica los servidores DNS externos a los que se pueden reenviar consultas.
+
+- `8.8.8.8`: DNS de Google.
+- `1.1.1.1`: DNS de Cloudflare.
+
+**`dnssec-validation auto;`**
+
+Activa la validación DNSSEC para comprobar la autenticidad de las respuestas DNS cuando corresponde.
+
+**`listen-on`**
+
+Indica las direcciones IP en las que Bind9 escuchará las consultas DNS.
+
+En nuestro caso escucha en la propia máquina y en `172.16.5.150`.
+
+Guardamos con `Ctrl + O`, Enter y salimos con `Ctrl + X`.
+
+---
+
+## 5. Crear las zonas DNS
+
+En DNS existen dos tipos de resolución que vamos a configurar.
+
+### Zona directa
+
+Permite traducir un nombre a una dirección IP.
+
+```text
+servidor.midominio.local → 172.16.5.150
+```
+
+### Zona inversa
+
+Permite traducir una dirección IP a un nombre.
+
+```text
+172.16.5.150 → servidor.midominio.local
+```
+
+Abrimos el archivo:
+
+```bash
+sudo nano /etc/bind/named.conf.local
+```
+
+Añadimos:
+
+```text
+zone "midominio.local" {
+    type master;
+    file "/etc/bind/db.midominio.local";
+};
+
+zone "5.16.172.in-addr.arpa" {
+    type master;
+    file "/etc/bind/db.172.16.5";
+};
+```
+
+### Explicación
+
+- `zone`: declara una zona DNS.
+- `midominio.local`: nombre del dominio que vamos a gestionar.
+- `type master`: indica que este servidor mantiene la zona principal.
+- `file`: indica dónde se encuentra el archivo con los registros DNS.
+- `in-addr.arpa`: se utiliza para la resolución inversa de direcciones IPv4.
+
+---
+
+## 6. Crear el archivo de zona directa
+
+Primero copiamos un archivo de ejemplo:
+
+```bash
+sudo cp /etc/bind/db.local /etc/bind/db.midominio.local
+```
+
+`cp` sirve para copiar archivos.
+
+Después abrimos el nuevo archivo:
+
+```bash
+sudo nano /etc/bind/db.midominio.local
+```
+
+Sustituimos el contenido por:
+
+```text
+$TTL 604800
+@ IN SOA ns1.midominio.local. admin.midominio.local. (
+    2026100801 ; Serial
+    604800     ; Refresh
+    86400      ; Retry
+    2419200    ; Expire
+    604800 )   ; Negative Cache TTL
+
+@        IN NS ns1.midominio.local.
+ns1      IN A  172.16.5.150
+servidor IN A  172.16.5.150
+cliente  IN A  172.16.5.151
+```
+
+### Explicación
+
+**`$TTL 604800`**
+
+Indica el tiempo de vida predeterminado de los registros DNS en caché.
+
+**`SOA`**
+
+Significa *Start of Authority* y contiene información principal de la zona DNS.
+
+**`Serial`**
+
+Es el número de versión de la zona. Debemos aumentarlo cuando hacemos modificaciones.
+
+**`Refresh`**
+
+Indica cada cuánto tiempo un servidor DNS secundario debe comprobar si la zona ha cambiado.
+
+**`Retry`**
+
+Indica cuánto debe esperar un servidor secundario antes de volver a intentarlo si falla una actualización.
+
+**`Expire`**
+
+Indica cuánto tiempo puede seguir utilizándose la zona secundaria sin poder contactar con el servidor principal.
+
+**`NS`**
+
+Identifica el servidor DNS responsable de la zona.
+
+**`A`**
+
+Relaciona un nombre de dominio con una dirección IPv4.
+
+Por ejemplo:
+
+```text
+cliente IN A 172.16.5.151
+```
+
+Significa que el nombre `cliente.midominio.local` corresponde a la IP `172.16.5.151`.
+
+---
+
+## 7. Crear el archivo de zona inversa
+
+Copiamos el archivo de ejemplo:
+
+```bash
+sudo cp /etc/bind/db.127 /etc/bind/db.172.16.5
+```
+
+Abrimos:
+
+```bash
+sudo nano /etc/bind/db.172.16.5
+```
+
+Sustituimos su contenido por:
+
+```text
+$TTL 604800
+@ IN SOA ns1.midominio.local. admin.midominio.local. (
+    2026100801
+    604800
+    86400
+    2419200
+    604800 )
+
+@   IN NS  ns1.midominio.local.
+150 IN PTR servidor.midominio.local.
+151 IN PTR cliente.midominio.local.
+```
+
+### Explicación
+
+Aquí utilizamos registros **PTR**.
+
+Un registro PTR permite relacionar una dirección IP con un nombre de dominio.
+
+Por ejemplo:
+
+```text
+150 IN PTR servidor.midominio.local.
+```
+
+Significa que la dirección `172.16.5.150` corresponde al nombre `servidor.midominio.local`.
+
+Solo escribimos `150` porque el resto de la dirección ya está indicado en la zona inversa.
+
+---
+
+## 8. Comprobar la configuración
+
+Antes de reiniciar el servicio tenemos que comprobar que no existen errores.
+
+Comprobamos la configuración general:
+
+```bash
+sudo named-checkconf
+```
+
+Si no aparece ningún mensaje normalmente significa que no hay errores de sintaxis.
+
+Comprobamos la zona directa:
+
+```bash
+sudo named-checkzone midominio.local /etc/bind/db.midominio.local
+```
+
+Comprobamos la zona inversa:
+
+```bash
+sudo named-checkzone 5.16.172.in-addr.arpa /etc/bind/db.172.16.5
+```
+
+Si está todo correcto debería aparecer `OK`.
+
+Reiniciamos Bind9:
+
+```bash
+sudo systemctl restart named
+```
+
+Comprobamos el estado:
+
+```bash
+sudo systemctl status named
+```
+
+---
+
+## 9. Configurar el cliente DNS
+
+Ahora vamos a indicar a nuestro cliente que utilice como DNS el servidor `172.16.5.150`.
+
+En Ubuntu podemos comprobar la configuración DNS actual con:
+
+```bash
+resolvectl status
+```
+
+Si utilizamos Netplan con `networkd`, podemos configurar el DNS en el archivo de red correspondiente.
+
+Ejemplo para un cliente con IP fija:
+
+```yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s3:
+      dhcp4: false
+      addresses:
+        - 172.16.5.151/24
+      nameservers:
+        search:
+          - midominio.local
+        addresses:
+          - 172.16.5.150
+```
+
+Este ejemplo solo se debe aplicar si `enp0s3` es la interfaz correcta y la máquina tiene esa configuración de red. Si ya existe un archivo Netplan, hay que conservar las opciones necesarias de conectividad.
+
+**Explicación:**
+
+- `addresses`: IP del cliente.
+- `nameservers`: configuración de los servidores DNS.
+- `search`: dominio de búsqueda.
+- `172.16.5.150`: IP de nuestro servidor DNS.
+
+El documento original utiliza `/etc/resolv.conf`, pero sus cambios pueden ser temporales en Ubuntu moderno.
+
+---
+
+## 10. Comprobar que DNS funciona
+
+Desde la máquina cliente ejecutamos:
+
+```bash
+dig @172.16.5.150 servidor.midominio.local
+```
+
+Debería devolver la IP:
+
+```text
+172.16.5.150
+```
+
+Comprobamos el cliente:
+
+```bash
+dig @172.16.5.150 cliente.midominio.local
+```
+
+Debería devolver:
+
+```text
+172.16.5.151
+```
+
+Probamos la resolución inversa:
+
+```bash
+dig @172.16.5.150 -x 172.16.5.150
+```
+
+Debería devolver:
+
+```text
+servidor.midominio.local.
+```
+
+Y:
+
+```bash
+dig @172.16.5.150 -x 172.16.5.151
+```
+
+Debería devolver:
+
+```text
+cliente.midominio.local.
+```
+
+Si las cuatro consultas funcionan, la resolución directa e inversa está correctamente configurada.
+
+---
+
+# PARTE B - CONFIGURACIÓN DNS CON DNSMASQ
+
+## 11. ¿Qué es Dnsmasq?
+
+Dnsmasq es un servidor DNS ligero que también puede ofrecer DHCP.
+
+Se utiliza principalmente en redes pequeñas, routers y laboratorios porque es más sencillo de configurar que Bind9.
+
+## 12. Instalación
+
+Instalamos:
+
+```bash
+sudo apt install dnsmasq -y
+```
+
+Antes de utilizarlo detenemos Bind9 para evitar conflictos con el puerto 53:
+
+```bash
+sudo systemctl stop named
+```
+
+## 13. Configuración
+
+Abrimos:
+
+```bash
+sudo nano /etc/dnsmasq.conf
+```
+
+Añadimos una configuración adaptada a nuestra red:
+
+```text
+interface=enp0s3
+bind-interfaces
+domain=midominio.local
+expand-hosts
+listen-address=127.0.0.1,172.16.5.150
+```
+
+La interfaz `enp0s3` debe comprobarse antes de aplicar la configuración.
+
+### Explicación
+
+**`interface`**
+
+Indica la interfaz de red utilizada por Dnsmasq.
+
+**`bind-interfaces`**
+
+Hace que Dnsmasq se vincule a las interfaces y direcciones configuradas.
+
+**`domain`**
+
+Define el dominio local.
+
+**`expand-hosts`**
+
+Permite completar los nombres cortos con el dominio configurado.
+
+**`listen-address`**
+
+Indica las direcciones en las que escuchará el servidor.
+
+Después abrimos:
+
+```bash
+sudo nano /etc/hosts
+```
+
+Añadimos:
+
+```text
+172.16.5.150 servidor.midominio.local servidor
+172.16.5.151 cliente.midominio.local cliente
+```
+
+Reiniciamos Dnsmasq:
+
+```bash
+sudo systemctl restart dnsmasq
+```
+
+Comprobamos:
+
+```bash
+sudo systemctl status dnsmasq
+```
+
+## 14. Pruebas desde el cliente
+
+Ejecutamos:
+
+```bash
+dig @172.16.5.150 servidor.midominio.local
+```
+
+Y:
+
+```bash
+dig @172.16.5.150 cliente.midominio.local
+```
+
+Si devuelve las IP correctas significa que Dnsmasq está resolviendo los nombres.
+
+---
+
+# PARTE C - CONFIGURACIÓN DE DDNS
+
+## 15. ¿Qué es DDNS?
+
+DDNS significa *Dynamic DNS* o DNS dinámico.
+
+Permite actualizar automáticamente los registros DNS cuando cambia la dirección IP de un equipo.
+
+Por ejemplo:
+
+```text
+cliente.midominio.local → 172.16.5.151
+```
+
+Si DHCP asigna otra IP:
+
+```text
+cliente.midominio.local → 172.16.5.160
+```
+
+DDNS puede actualizar el registro automáticamente.
+
+Así no necesitamos modificar los archivos de zona manualmente cada vez que cambia una IP.
+
+## 16. Relación entre DHCP y DNS
+
+El funcionamiento general es:
+
+1. El cliente solicita una dirección IP al servidor DHCP.
+2. DHCP le asigna una dirección disponible.
+3. DHCP envía una actualización al servidor DNS.
+4. DNS modifica el registro correspondiente.
+5. El cliente puede seguir localizándose por su nombre.
+
+Para proteger estas actualizaciones se utiliza una clave TSIG.
+
+## 17. ¿Qué es TSIG?
+
+TSIG es un mecanismo de autenticación que utiliza una clave compartida.
+
+Permite comprobar que las actualizaciones DNS vienen de un sistema autorizado.
+
+En nuestra práctica el servidor DHCP y Bind9 utilizarán la misma clave.
+
+Para generar una clave:
+
+```bash
+sudo tsig-keygen -a hmac-sha256 ddns-key
+```
+
+Este comando genera una clave que posteriormente utilizaremos en la configuración de ambos servicios.
+
+La clave debe guardarse de forma segura y no publicarse en GitHub.
+
+## 18. Configuración de DHCP para DDNS
+
+En el servidor DHCP abrimos:
+
+```bash
+sudo nano /etc/dhcp/dhcpd.conf
+```
+
+Entre las opciones que aparecen en el documento tenemos:
+
+```text
+ddns-update-style interim;
+ignore client-updates;
+```
+
+**`ddns-update-style interim`**
+
+Indica el método de actualizaciones dinámicas que utilizará ISC DHCP.
+
+**`ignore client-updates`**
+
+Indica que DHCP ignorará las solicitudes del cliente para gestionar sus propias actualizaciones DNS.
+
+También tendremos que configurar las zonas DNS que DHCP puede actualizar y la clave compartida con Bind9.
+
+Antes de hacerlo debemos realizar una copia de seguridad de la configuración DHCP actual, ya que nuestro servidor está funcionando y no queremos perderla.
+
+## 19. Configurar Bind9 para aceptar actualizaciones
+
+En el documento se modifica:
+
+```bash
+sudo nano /etc/bind/named.conf.local
+```
+
+Para permitir actualizaciones dinámicas autenticadas.
+
+La configuración completa requiere:
+
+- Declarar la clave TSIG.
+- Autorizar las actualizaciones de la zona directa.
+- Autorizar las actualizaciones de la zona inversa.
+- Utilizar archivos de zona con permisos adecuados para Bind9.
+- Configurar DHCP para enviar las actualizaciones.
+
+Esta parte se completará cuando comprobemos que Bind9 y DHCP funcionan correctamente por separado, ya que la configuración del documento es un ejemplo y necesita ajustes para nuestra instalación.
+
+## 20. Comprobación de DDNS
+
+Cuando tengamos configurada la integración, haremos que el cliente solicite una dirección IP mediante DHCP.
+
+Después comprobaremos que el servidor DNS ha actualizado sus registros.
+
+Por ejemplo:
+
+```bash
+dig @172.16.5.150 cliente.midominio.local
+```
+
+Y para la resolución inversa:
+
+```bash
+dig @172.16.5.150 -x 172.16.5.151
+```
+
+Si la dirección del cliente cambia, comprobaremos que DNS devuelve la nueva dirección.
+
+---
+
+# RESUMEN FINAL
+
+| Concepto | Función |
+|---|---|
+| DNS | Traduce nombres de dominio a IP |
+| Bind9 | Servidor DNS completo |
+| Dnsmasq | Servidor DNS ligero |
+| Zona directa | Nombre a IP |
+| Zona inversa | IP a nombre |
+| Registro A | Relaciona nombre con IPv4 |
+| Registro PTR | Relaciona IP con nombre |
+| Registro NS | Identifica el servidor DNS de una zona |
+| Registro SOA | Contiene información principal de la zona |
+| TTL | Tiempo de vida de un registro en caché |
+| DHCP | Asigna direcciones IP automáticamente |
+| DDNS | Actualiza registros DNS cuando cambian las IP |
+| TSIG | Autentica las actualizaciones DNS |
+| `dig` | Realiza consultas DNS |
+| `named-checkconf` | Comprueba la configuración de Bind9 |
+| `named-checkzone` | Comprueba una zona DNS |
+| Puerto 53 | Puerto utilizado por DNS |
+
+## Conclusión
+
+En esta práctica configuramos un servidor DNS en Ubuntu utilizando Bind9, creamos una zona directa y otra inversa y comprobamos su funcionamiento desde una máquina cliente.
+
+Después probamos Dnsmasq como alternativa más sencilla.
+
+Finalmente estudiamos cómo integrar DHCP con DNS mediante DDNS para actualizar automáticamente los registros cuando cambian las direcciones IP.
+
+El objetivo es entender cómo trabajan juntos los servicios de red y cómo permiten que los equipos puedan localizarse y comunicarse utilizando nombres de dominio.
