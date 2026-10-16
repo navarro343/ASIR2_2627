@@ -21,16 +21,20 @@ Esta guía detalla la implementación, configuración y comprobación de un serv
 
 ### Paso 2.1: Instalación de BIND9
 Actualiza los repositorios e instala BIND9 y sus utilidades de comprobación:
-    sudo apt update
+
+    sudo apt update; 
+    
     sudo apt install bind9 bind9-utils -y
+
 
 ### Paso 2.2: Configuración de Opciones Globales (`named.conf.options`)
 Edita el archivo de configuración global:
+
     sudo nano /etc/bind/named.conf.options
 Configura los parámetros de escucha, consultas y reenvío (*forwarders*):
+
     options {
         directory "/var/cache/bind";
-
         listen-on { 127.0.0.1; 172.16.6.170; };  # IP del Servidor DNS
         allow-query { any; };
         recursion yes;
@@ -46,8 +50,11 @@ Configura los parámetros de escucha, consultas y reenvío (*forwarders*):
 
 ### Paso 2.3: Declaración de la Zona Local (`named.conf.local`)
 Añade la definición del dominio maestro en el archivo local:
+
     sudo nano /etc/bind/named.conf.local
+    
 Añade el siguiente bloque:
+
     zone "tudominio.local" {
         type master;
         file "/etc/bind/db.tudominio.local";
@@ -57,6 +64,7 @@ Añade el siguiente bloque:
 Crea y edita el archivo de zona para definir los registros de recursos:
     sudo nano /etc/bind/db.tudominio.local
 Introduce la siguiente estructura de registros:
+
     $TTL 86400
     @   IN  SOA ns1.tudominio.local. admin.tudominio.local. (
                   2026101301 ; Serial
@@ -72,6 +80,7 @@ Introduce la siguiente estructura de registros:
 
 ### Paso 2.5: Verificación y Reinicio del Servicio
 Comprueba que la sintaxis sea correcta y reinicia el servicio BIND9:
+
     sudo named-checkconf
     sudo named-checkzone tudominio.local /etc/bind/db.tudominio.local
     sudo systemctl restart named
@@ -82,8 +91,11 @@ Comprueba que la sintaxis sea correcta y reinicia el servicio BIND9:
 ## 3. Configuración del Servidor DHCP
 
 Para automatizar la entrega de IP y DNS a los clientes de la red:
+
     sudo nano /etc/dhcp/dhcpd.conf
+    
 Asegura los parámetros de la subred:
+
     subnet 172.16.6.0 netmask 255.255.255.0 {
       range 172.16.6.171 172.16.6.180;
       option routers 172.16.6.1;
@@ -91,6 +103,7 @@ Asegura los parámetros de la subred:
       option domain-name "tudominio.local";
     }
 Reinicia el servicio DHCP:
+
     sudo systemctl restart isc-dhcp-server
 
 ---
