@@ -174,3 +174,142 @@ sudo resolvectl domain enp0s3 navarro.asir2.iespoveda.local
    ```text
    http://www.navarro.asir2.iespoveda.local:8080
    ```
+
+
+
+
+
+
+
+
+
+
+
+   # Configuración de Réplica DNS BIND9 (Servidor Principal y Servidor Secundario)
+
+Esta guía documenta únicamente los pasos necesarios para habilitar la réplica de zona (Master/Slave) entre el servidor DNS principal y el nuevo servidor secundario clonado.
+
+---
+
+## 1. Parámetros de los Servidores
+- **Servidor DNS Principal (Master)**: `172.16.6.170`
+- **Servidor DNS Secundario (Slave - Clon)**: `172.16.6.172` *(Ajustar según la IP real asignada al clon)*
+- **Dominio**: `navarro.asir2.iespoveda.local`
+
+---
+
+## 2. Ajustes en el Servidor DNS Principal (`172.16.6.170`)
+
+### Paso 2.1: Permitir la transferencia de zona en `named.conf.local`
+Edita la configuración de la zona en el servidor principal:
+```bash
+sudo nano /etc/bind/named.conf.local
+```
+Añade las directivas `allow-transfer` y `also-notify` apuntando a la IP del servidor secundario:
+```named
+zone "navarro.asir2.iespoveda.local" {
+    type master;
+    file "/etc/bind/db.navarro.asir2.iespoveda.local";
+    allow-transfer { 172.16.6.172; }; // IP del servidor secundario
+    also-notify { 172.16.6.172; };    // Notificación automática de cambios
+};
+```
+
+### Paso 2.2: Actualizar el archivo de registros de zona
+Añade el registro NS del servidor secundario e incrementa el número de serie (`Serial`):
+```bash
+sudo nano /etc/bind/db.navarro.asir2.iespoveda.local
+```
+```text
+$TTL 86400
+@   IN  SOA ns1.navarro.asir2.iespoveda.local. admin.navarro.asir2.iespoveda.local. (
+              2026101302 ; Serial (Incrementar para forzar la réplica)
+              600        ; Refresh
+              120        ; Retry
+              604800     ; Expire
+              86400 )    ; Minimum TTL
+
+@       IN  NS  ns1.navarro.asir2.iespoveda.local.
+@       IN  NS  ns2.navarro.asir2.iespoveda.local.
+@       IN  A   172.16.6.170
+ns1     IN  A   172.16.6.170   ; Servidor Master
+ns2     IN  A   172.16.6.172   ; Servidor Slave
+www     IN  A   172.16.6.170
+cliente IN  A   172.16.6.171
+```
+
+### Paso 2.3: Reiniciar BIND9 en el Principal
+```bash
+sudo systemctl restart named
+```
+
+---
+
+## 3. Configuración en el Servidor DNS Secundario (`172.16.6.172`)
+
+### Paso 3.1: Instalar BIND9 en la máquina clonada
+```bash
+sudo apt update
+sudo apt install bind9 bind9-utils -y
+```
+
+### Paso 3.2: Configurar `named.conf.options`
+Abre la configuración global:
+```bash
+sudo nano /etc/bind/named.conf.options
+```
+Configura la escucha en la dirección IP del clon:
+```named
+options {
+    directory "/var/cache/bind";
+
+    listen-on { 127.0.0.1; 172.16.6.172; };
+    allow-query { any; };
+    recursion yes;
+    allow-recursion { 172.16.6.0/24; localhost; };
+
+    forwarders {
+        8.8.8.8;
+        1.1.1.1;
+    };
+
+    dnssec-validation auto;
+};
+```
+
+### Paso 3.3: Declarar la zona como Esclava (`named.conf.local`)
+Abre el archivo de zonas locales:
+```bash
+sudo nano /etc/bind/named.conf.local
+```
+Añade la zona indicando la IP del servidor maestro:
+```named
+zone "navarro.asir2.iespoveda.local" {
+    type slave;
+    file "/var/cache/bind/db.navarro.asir2.iespoveda.local";
+    masters { 172.16.6.170; };
+};
+```
+
+### Paso 3.4: Iniciar el servicio BIND9 en el Secundario
+```bash
+sudo systemctl restart named
+sudo systemctl enable named
+```
+
+---
+
+## 4. Verificación de la Transferencia de Zona
+En la máquina secundaria, ejecuta los siguientes comandos para confirmar que ha recibido los datos del servidor principal:
+
+1. **Revisar los registros de transferencia:**
+   ```bash
+   sudo journalctl -u named -e
+   ```
+   *(Debe indicar que la transferencia de zona desde `172.16.6.170` finalizó correctamente).*
+
+2. **Probar una consulta DNS contra el Secundario:**
+   ```bash
+   dig @172.16.6.172 www.navarro.asir2.iespoveda.local
+   ```
+
